@@ -1,0 +1,4 @@
+outs:
+- md5: bb2c24b52f8d75b2ae0f1453784f2d01
+  size: 35367363
+  path: all_module_cluster_results_oligo.txt

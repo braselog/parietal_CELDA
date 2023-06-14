@@ -1,0 +1,182 @@
+CELLTYPES = ['microglia','opc','oligo']#'astro','n_inh','n_ex',
+
+rule all:
+    input: expand("results/{celltype}/K_{celltype}.txt", celltype=CELLTYPES),
+        expand("results/{celltype}/L_celda_{celltype}.qs",                                     celltype=CELLTYPES),
+        expand("results/{celltype}/perplexityPlots_L_celda_{celltype}.pdf",                    celltype=CELLTYPES),
+        expand("results/{celltype}/perplexityPlots_K_celda_{celltype}.pdf",                    celltype=CELLTYPES),
+        expand("results/{celltype}/K_celda_{celltype}.qs",                                     celltype=CELLTYPES),
+        expand("results/{celltype}/{L_K}_{celltype}.txt",                                      celltype=CELLTYPES, L_K=['L','K']),
+        expand("results/{celltype}/heatmap_{celltype}.pdf",                                     celltype=CELLTYPES),
+        expand("results/{celltype}/umap_{celltype}.pdf",                                      celltype=CELLTYPES),
+        expand("results/{celltype}/all_module_cluster_results_{celltype}.txt",                 celltype=CELLTYPES),
+        expand("results/{celltype}/sig_module_cluster_results_{celltype}.txt",                 celltype=CELLTYPES),
+        expand("results/{celltype}/sig_module_cluster_results_summary_{celltype}.txt",         celltype=CELLTYPES),
+        expand("results/{celltype}/violinplot_of_sex_interaction_modules_{celltype}.pdf",      celltype=CELLTYPES),
+        expand("results/{celltype}/sex_AD_interaction_genes_by_cluster_{celltype}.csv",         celltype=CELLTYPES),
+        expand("results/{celltype}/sex_AD_interaction_gene_hits_{celltype}.pdf",               celltype=CELLTYPES),
+        expand("results/{celltype}/celda_gene_module_status_model_celdaCluster_{celltype}.qs", celltype=CELLTYPES),
+        expand("results/{celltype}/celda_gene_module_status_model_celdaCluster_{celltype}.csv", celltype=CELLTYPES),
+        expand("results/{celltype}/abundance_analysis_{celltype}.csv",                        celltype=CELLTYPES)
+
+rule calculate_L_gene_modules:
+    output: 
+        celda = "results/{celltype}/L_celda_{celltype}.qs",
+    shell: """
+        Rscript scripts/calculate_L_gene_modules.R {wildcards.celltype} {output.celda}
+        echo calculate_L_gene_modules Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+rule calculate_K_cell_clusters:
+    input: 
+        celda = "results/{celltype}/L_celda_{celltype}.qs",
+        L = "results/{celltype}/L_{celltype}.txt"
+    output: 
+        celda = "results/{celltype}/K_celda_{celltype}.qs",
+    shell: """
+        Rscript scripts/calculate_K_cell_clusters.R {input.celda} {input.L} {output.celda}
+        echo calculate_K_cell_clusters Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+rule find_optimal_L_K:
+    input: "results/{celltype}/{L_K}_celda_{celltype}.qs"
+    output: 
+        plot = "results/{celltype}/perplexityPlots_{L_K}_celda_{celltype}.pdf",
+        L_K = "results/{celltype}/{L_K}_{celltype}.txt"
+    shell: """
+        Rscript scripts/find_optimal_L_K.R {input} {output.plot} {output.L_K}
+        echo find_optimal_L_K Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+rule create_heatmap_and_umap:
+    input: 
+        celda = "results/{celltype}/K_celda_{celltype}.qs",
+        L = "results/{celltype}/L_{celltype}.txt",
+        K = "results/{celltype}/K_{celltype}.txt"
+    output:
+        umap = "results/{celltype}/umap_{celltype}.pdf",
+        heatmap = "results/{celltype}/heatmap_{celltype}.pdf",
+        tables = "results/{celltype}/cluster_by_cluster_table_{celltype}.csv"
+    shell: """
+        Rscript scripts/create_heatmap_and_umap.R {input.celda} {input.L} {input.K} {output.umap} {output.heatmap} {output.tables}
+        echo create_heatmap_and_umap Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+rule run_sex_interaction_for_all_module_cluster_pairs:
+    input: 
+        #heatmap = "results/{celltype}/heatmap_{celltype}.pdf",
+        #umap = "results/{celltype}/umap_{celltype}.pdf",
+        celda = "results/{celltype}/K_celda_{celltype}.qs",
+        L = "results/{celltype}/L_{celltype}.txt",
+        K = "results/{celltype}/K_{celltype}.txt"
+    output:
+        allRes = "results/{celltype}/all_module_cluster_results_{celltype}.txt",
+        sigRes = "results/{celltype}/sig_module_cluster_results_{celltype}.txt",
+        sADpvals = "results/{celltype}/sig_module_cluster_sAD_pvals_{celltype}.qs"
+    shell: """
+        Rscript scripts/run_sex_interaction_for_all_module_cluster_pairs.R {input.celda} {input.L} {input.K} {output.allRes} {output.sigRes} {output.sADpvals}
+        echo run_sex_interaction_for_all_module_cluster_pairs Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+rule module_hits_summary:
+    input: "results/{celltype}/sig_module_cluster_results_{celltype}.txt" 
+    output: "results/{celltype}/sig_module_cluster_results_summary_{celltype}.txt"
+    shell: "Rscript scripts/module_hits_summary.R {input} {output}"
+
+rule plot_violinplot_of_sex_interaction_modules:
+    input:
+        celda = "results/{celltype}/K_celda_{celltype}.qs",
+        L = "results/{celltype}/L_{celltype}.txt",
+        K = "results/{celltype}/K_{celltype}.txt",
+        pvals = "results/{celltype}/sig_module_cluster_sAD_pvals_{celltype}.qs"
+    output: plot = "results/{celltype}/violinplot_of_sex_interaction_modules_{celltype}.pdf"
+    shell: """
+        Rscript scripts/plot_violinplot_of_sex_interaction_modules.R {input.celda} {input.L} {input.K} {input.pvals} {output.plot}
+        echo plot_violinplot_of_sex_interaction_modules Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+rule run_sex_interaction_for_top_genes_in_significant_module_cluster_pairs:
+    input:
+        #plot = "results/{celltype}/violinplot_of_sex_interaction_modules_{celltype}.pdf",
+        celda = "results/{celltype}/K_celda_{celltype}.qs",
+        L = "results/{celltype}/L_{celltype}.txt",
+        K = "results/{celltype}/K_{celltype}.txt",
+        clusters = "results/{celltype}/sig_module_cluster_results_{celltype}.txt",
+    output: "results/{celltype}/sex_AD_interaction_genes_by_cluster_{celltype}.csv"
+    shell: """
+        Rscript scripts/run_sex_interaction_for_top_genes_in_significant_module_cluster_pairs.R {input.celda} {input.L} {input.K} {input.clusters} {wildcards.celltype} {output}
+        echo run_sex_interaction_for_top_genes_in_significant_module_cluster_pairs Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+rule plot_violinplot_of_significant_gene_expression:
+    input: 
+        hits = "results/{celltype}/sex_AD_interaction_genes_by_cluster_{celltype}.csv",
+        celda = "results/{celltype}/K_celda_{celltype}.qs",
+        L = "results/{celltype}/L_{celltype}.txt",
+        K = "results/{celltype}/K_{celltype}.txt",
+    output: "results/{celltype}/sex_AD_interaction_gene_hits_{celltype}.pdf"
+    shell: """
+        Rscript scripts/plot_violinplot_of_significant_gene_expression.R {input.hits} {wildcards.celltype} {input.celda} {input.L} {input.K} {output}
+        echo plot_violinplot_of_significant_gene_expression Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+rule run_module_genetic_association_analysis:
+    input:
+        #plot = "results/{celltype}/sex_AD_interaction_gene_hits_{celltype}.pdf",
+        celda = "results/{celltype}/K_celda_{celltype}.qs",
+        L = "results/{celltype}/L_{celltype}.txt",
+        K = "results/{celltype}/K_{celltype}.txt"
+    output: 
+        allRes = "results/{celltype}/celda_gene_module_status_model_celdaCluster_{celltype}.qs",
+        sigRes = "results/{celltype}/celda_gene_module_status_model_celdaCluster_{celltype}.csv"
+    shell: """
+        Rscript scripts/run_module_genetic_association_analysis.R {input.celda} {input.L} {input.K} {output.allRes} {output.sigRes}
+        echo run_module_genetic_association_analysis Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+#rule identify_TFs_associated_with_modules:
+#    input:
+#    output:
+#    shell:
+
+rule abundance_analysis:
+    input:
+        celda = "results/{celltype}/K_celda_{celltype}.qs",
+        L = "results/{celltype}/L_{celltype}.txt",
+        K = "results/{celltype}/K_{celltype}.txt"
+    output: "results/{celltype}/abundance_analysis_{celltype}.csv"
+    shell: """
+        Rscript scripts/abundance_analysis.R {input.celda} {input.L} {input.K} {output}
+        echo abundance_analysis Done
+        bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
+        echo Git_hook Done
+        """
+
+#rule run_enrichment_analysis_for_all_modules:
+#    input:
+#        celda = "results/{celltype}/K_celda_{celltype}.qs",
+#        L = "results/{celltype}/L_{celltype}.txt",
+#        K = "results/{celltype}/K_{celltype}.txt"
+#    output: "results/{celltype}/enrichment_analysis_{celltype}.csv"
+#    shell: "Rscript scripts/run_enrichment_analysis_for_all_modules.R {input.celda} {input.L} {input.K} {output}"
+
+rule fix_timestamp:
+    shell: expand("touch -r results/{celltype}/perplexityPlots_L_celda_{celltype}.pdf -d '-5 seconds' results/{celltype}/*_celda_{celltype}.qs*", celltype = ['n_inh'])
