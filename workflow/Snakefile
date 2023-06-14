@@ -1,4 +1,4 @@
-CELLTYPES = ['microglia','opc','oligo']#'astro','n_inh','n_ex',
+CELLTYPES = ['microglia','opc','oligo','astro','n_inh','n_ex',
 
 rule all:
     input: expand("results/{celltype}/K_{celltype}.txt", celltype=CELLTYPES),
@@ -72,8 +72,6 @@ rule create_heatmap_and_umap:
 
 rule run_sex_interaction_for_all_module_cluster_pairs:
     input: 
-        #heatmap = "results/{celltype}/heatmap_{celltype}.pdf",
-        #umap = "results/{celltype}/umap_{celltype}.pdf",
         celda = "results/{celltype}/K_celda_{celltype}.qs",
         L = "results/{celltype}/L_{celltype}.txt",
         K = "results/{celltype}/K_{celltype}.txt"
@@ -109,7 +107,6 @@ rule plot_violinplot_of_sex_interaction_modules:
 
 rule run_sex_interaction_for_top_genes_in_significant_module_cluster_pairs:
     input:
-        #plot = "results/{celltype}/violinplot_of_sex_interaction_modules_{celltype}.pdf",
         celda = "results/{celltype}/K_celda_{celltype}.qs",
         L = "results/{celltype}/L_{celltype}.txt",
         K = "results/{celltype}/K_{celltype}.txt",
@@ -138,7 +135,6 @@ rule plot_violinplot_of_significant_gene_expression:
 
 rule run_module_genetic_association_analysis:
     input:
-        #plot = "results/{celltype}/sex_AD_interaction_gene_hits_{celltype}.pdf",
         celda = "results/{celltype}/K_celda_{celltype}.qs",
         L = "results/{celltype}/L_{celltype}.txt",
         K = "results/{celltype}/K_{celltype}.txt"
@@ -152,11 +148,6 @@ rule run_module_genetic_association_analysis:
         echo Git_hook Done
         """
 
-#rule identify_TFs_associated_with_modules:
-#    input:
-#    output:
-#    shell:
-
 rule abundance_analysis:
     input:
         celda = "results/{celltype}/K_celda_{celltype}.qs",
@@ -169,14 +160,3 @@ rule abundance_analysis:
         bash /home/brasel/SingleCellProjects/MyProjects/SexDifferences/.git/hooks/pre-commit
         echo Git_hook Done
         """
-
-#rule run_enrichment_analysis_for_all_modules:
-#    input:
-#        celda = "results/{celltype}/K_celda_{celltype}.qs",
-#        L = "results/{celltype}/L_{celltype}.txt",
-#        K = "results/{celltype}/K_{celltype}.txt"
-#    output: "results/{celltype}/enrichment_analysis_{celltype}.csv"
-#    shell: "Rscript scripts/run_enrichment_analysis_for_all_modules.R {input.celda} {input.L} {input.K} {output}"
-
-rule fix_timestamp:
-    shell: expand("touch -r results/{celltype}/perplexityPlots_L_celda_{celltype}.pdf -d '-5 seconds' results/{celltype}/*_celda_{celltype}.qs*", celltype = ['n_inh'])
